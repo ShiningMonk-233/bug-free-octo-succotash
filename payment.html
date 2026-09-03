@@ -146,11 +146,13 @@ function renderError(msg){
   upiParams.set('cu', 'INR');
   if(note) upiParams.set('tn', note);
   upiParams.set('tr', ref);
-  // mc = merchant category code. Some UPI apps require this for P2M-style
-  // intents and reject the payment (often shown as a generic limit error)
-  // when it's absent. '0000' is a safe default for non-registered sellers;
-  // pass ?mc=XXXX in the link to override with a real MCC if you have one.
-  upiParams.set('mc', mc || '0000');
+  // mc = merchant category code — only include this if the payee VPA is a
+  // *registered merchant* with a real MCC. Sending a fabricated mc for a
+  // personal account makes the intent look like a merchant transaction for
+  // an unregistered merchant, which GPay rejects right at the "Pay" tap
+  // (before PIN entry) — exactly the "limit exceeded" symptom. Pass
+  // ?mc=XXXX only if you actually have one; otherwise omit it.
+  if(mc) upiParams.set('mc', mc);
   const upiString = 'upi://pay?' + upiParams.toString();
 
   document.title = `Pay ₹${fmtINR(amount)} to ${name}`;
