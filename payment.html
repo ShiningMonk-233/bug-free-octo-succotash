@@ -1,70 +1,217 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Secure Payment</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; background: #fafafa; text-align: center; padding: 20px; }
-        .payment-box { max-width: 400px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        #qrcode { margin: 20px auto; display: flex; justify-content: center; }
-        .amount-display { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 10px; }
-        .upi-apps { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
-        .app-btn { padding: 12px; text-decoration: none; color: #333; border: 1px solid #ddd; border-radius: 8px; font-weight: bold; }
-        .copy-box { margin-top: 20px; padding: 10px; background: #f4f4f4; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
-        .copy-btn { background: #28a745; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --page: #F1EFE6;
+    --paper: #FCFBF6;
+    --ink: #201F1C;
+    --ink-soft: #6B675D;
+    --hairline: #D9D3C3;
+    --green: #1F4B3F;
+    --green-soft: #E8EEE9;
+    --stamp: #A6392B;
+    --shadow: rgba(32, 31, 28, 0.12);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--page); color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif; padding:40px 16px 60px;
+  }
+  .mono{font-family:'IBM Plex Mono', monospace;}
+  .pay-view{max-width:420px; margin:0 auto;}
+
+  .receipt{
+    background:var(--paper); border:1px solid var(--hairline); border-radius:2px;
+    box-shadow:0 10px 30px var(--shadow); overflow:hidden;
+  }
+  .perf{
+    height:14px;
+    background-image: radial-gradient(circle at 7px 7px, var(--page) 7px, transparent 7.5px);
+    background-size: 20px 14px; background-repeat: repeat-x; margin-top:-1px;
+  }
+  .receipt-body{padding:28px 26px 24px;}
+
+  .r-head{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    border-bottom:1px dashed var(--hairline); padding-bottom:16px; margin-bottom:18px;
+  }
+  .r-head .from{font-size:13px; color:var(--ink-soft);}
+  .r-head .from strong{display:block; color:var(--ink); font-size:15px; font-weight:600;}
+  .r-head .ref{text-align:right; font-size:11px; color:var(--ink-soft);}
+  .r-head .ref span{display:block; font-family:'IBM Plex Mono',monospace; color:var(--ink); font-size:12px;}
+
+  .greeting{font-size:13.5px; color:var(--ink-soft); margin-bottom:4px;}
+
+  .amount-block{text-align:center; margin:18px 0 20px;}
+  .amount-block .label{font-size:11.5px; color:var(--ink-soft); letter-spacing:0.3px;}
+  .amount-block .amt{
+    font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:40px; color:var(--ink);
+    margin:4px 0 2px;
+  }
+  .amount-block .for-note{font-size:13px; color:var(--ink-soft);}
+
+  .qr-wrap{display:flex; flex-direction:column; align-items:center; margin-bottom:20px;}
+  .qr-wrap .qr-box{padding:12px; background:#fff; border:1px solid var(--hairline); border-radius:4px;}
+  .qr-wrap .cap{font-size:12px; color:var(--ink-soft); margin-top:8px;}
+
+  .app-btns{display:grid; gap:8px; margin-bottom:18px;}
+  .app-btn{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:12px; text-decoration:none; font-weight:600; font-size:14.5px;
+    border-radius:3px; border:1px solid var(--hairline); color:var(--ink); background:#fff;
+  }
+  .app-btn:hover{background:var(--green-soft);}
+  .app-btn.upi{background:var(--green); color:#fff; border:none;}
+  .app-btn.upi:hover{background:#173a31;}
+  .swatch{width:9px; height:9px; border-radius:2px; flex:0 0 auto;}
+  .sw-paytm{background:#00baf2;}
+  .sw-gpay{background:#5f6368;}
+  .sw-phonepe{background:#5f259f;}
+
+  .manual-vpa{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--green-soft); border-radius:3px; padding:11px 13px; margin-bottom:18px;
+  }
+  .manual-vpa .k{display:block; font-size:11px; color:var(--ink-soft);}
+  .manual-vpa .id{font-family:'IBM Plex Mono', monospace; font-size:13.5px;}
+  .manual-vpa button{
+    border:none; background:var(--ink); color:#fff; font-size:12px; padding:7px 11px;
+    border-radius:3px; cursor:pointer; flex:0 0 auto;
+  }
+  .manual-vpa button:hover{background:#3a3833;}
+
+  .disclosure{font-size:11.5px; color:var(--ink-soft); text-align:center; margin-top:4px; line-height:1.5;}
+
+  .error-state{
+    max-width:420px; margin:60px auto 0; text-align:center; color:var(--ink-soft);
+    font-size:14px; background:var(--paper); border:1px solid var(--hairline);
+    border-radius:4px; padding:40px 24px;
+  }
+</style>
 </head>
 <body>
-    <div class="payment-box">
-        <h2>Scan to Pay</h2>
-        <div class="amount-display" id="displayAmount">₹0.00</div>
-        
-        <div id="qrcode"></div>
 
-        <div class="upi-apps">
-            <a href="#" id="paytmBtn" class="app-btn">Pay via Paytm</a>
-            <a href="#" id="gpayBtn" class="app-btn">Pay via GPay</a>
-            <a href="#" id="phonepeBtn" class="app-btn">Pay via PhonePe</a>
+<div id="app" class="pay-view"></div>
+
+<script>
+function fmtINR(n){
+  return Number(n || 0).toLocaleString('en-IN', {maximumFractionDigits: 2});
+}
+function escapeHtml(s){
+  return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function renderQr(elId, text, size){
+  const el = document.getElementById(elId);
+  el.innerHTML = '';
+  new QRCode(el, {text, width:size, height:size, colorDark:'#201F1C', colorLight:'#ffffff'});
+}
+function renderError(msg){
+  document.getElementById('app').innerHTML = `<div class="error-state">${escapeHtml(msg)}</div>`;
+}
+
+(function init(){
+  const p = new URLSearchParams(window.location.search);
+  const upi = (p.get('upi') || '').trim();
+  const name = (p.get('name') || '').trim();
+  const amount = (p.get('amount') || '').trim();
+  const note = (p.get('note') || '').trim();
+  const cust = (p.get('cust') || '').trim();
+  const mc = (p.get('mc') || '').trim();
+
+  function generateTxnRef(){
+    // Unique per page load so retries never reuse the same reference —
+    // reused/missing tr values are a common cause of apps silently
+    // rejecting a UPI intent (often surfaced as a generic "limit exceeded").
+    const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+    return `TXN${Date.now()}${rand}`;
+  }
+  const ref = (p.get('ref') || '').trim() || generateTxnRef();
+
+  if(!upi || !name || !amount || Number(amount) <= 0){
+    renderError("This payment link is missing or malformed — ask for a fresh link from the seller.");
+    return;
+  }
+
+  const upiParams = new URLSearchParams();
+  upiParams.set('pa', upi);
+  upiParams.set('pn', name);
+  upiParams.set('am', Number(amount).toFixed(2));
+  upiParams.set('cu', 'INR');
+  if(note) upiParams.set('tn', note);
+  upiParams.set('tr', ref);
+  // mc = merchant category code. Some UPI apps require this for P2M-style
+  // intents and reject the payment (often shown as a generic limit error)
+  // when it's absent. '0000' is a safe default for non-registered sellers;
+  // pass ?mc=XXXX in the link to override with a real MCC if you have one.
+  upiParams.set('mc', mc || '0000');
+  const upiString = 'upi://pay?' + upiParams.toString();
+
+  document.title = `Pay ₹${fmtINR(amount)} to ${name}`;
+
+  document.getElementById('app').innerHTML = `
+    <div class="receipt">
+      <div class="perf"></div>
+      <div class="receipt-body">
+        <div class="r-head">
+          <div class="from">
+            ${cust ? `<div class="greeting">Hi ${escapeHtml(cust)},</div>` : ''}
+            <strong>${escapeHtml(name)}</strong>is requesting a payment
+          </div>
+          ${ref ? `<div class="ref">Ref<span>${escapeHtml(ref)}</span></div>` : ''}
         </div>
 
-        <div class="copy-box">
-            <span id="displayUpi">upi@id</span>
-            <button class="copy-btn" onclick="copyUPI()">Copy</button>
+        <div class="amount-block">
+          <div class="label">Amount payable</div>
+          <div class="amt">₹${fmtINR(amount)}</div>
+          ${note ? `<div class="for-note">for ${escapeHtml(note)}</div>` : ''}
         </div>
+
+        <div class="qr-wrap">
+          <div class="qr-box"><div id="qrcode"></div></div>
+          <div class="cap">Scan with any UPI app to pay</div>
+        </div>
+
+        <div class="app-btns">
+          <a class="app-btn" id="paytmBtn" href="#"><span class="swatch sw-paytm"></span>Pay via Paytm</a>
+          <a class="app-btn" id="gpayBtn" href="#"><span class="swatch sw-gpay"></span>Pay via GPay</a>
+          <a class="app-btn" id="phonepeBtn" href="#"><span class="swatch sw-phonepe"></span>Pay via PhonePe</a>
+          <a class="app-btn upi" id="upiBtn" href="#">Open in another UPI app</a>
+        </div>
+
+        <div class="manual-vpa">
+          <div><span class="k">UPI ID</span><span class="id">${escapeHtml(upi)}</span></div>
+          <button id="copyBtn">Copy</button>
+        </div>
+
+        <div class="disclosure">This page only displays payment details — it does not collect or store your money, card, or bank information.</div>
+      </div>
     </div>
+  `;
 
-    <script>
-        // 1. Get data from the URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const upi = urlParams.get('upi');
-        const name = urlParams.get('name');
-        const amount = urlParams.get('amount');
+  renderQr('qrcode', upiString, 200);
 
-        // 2. Format the standard UPI string
-        const upiString = `upi://pay?pa=${upi}&pn=${name}&am=${amount}&cu=INR`;
+  const deepLink = (scheme) => scheme + '?' + upiParams.toString();
+  document.getElementById('paytmBtn').href = deepLink('paytmmp://pay');
+  document.getElementById('gpayBtn').href = deepLink('tez://upi/pay');
+  document.getElementById('phonepeBtn').href = deepLink('phonepe://pay');
+  document.getElementById('upiBtn').href = upiString;
 
-        // 3. Update the HTML text
-        document.getElementById('displayAmount').innerText = `₹${amount}`;
-        document.getElementById('displayUpi').innerText = upi;
-
-        // 4. Generate the QR Code
-        new QRCode(document.getElementById("qrcode"), {
-            text: upiString,
-            width: 200,
-            height: 200,
-        });
-
-        // 5. Set up Mobile App deep links
-        document.getElementById('paytmBtn').href = `paytmmp://pay?pa=${upi}&pn=${name}&am=${amount}&cu=INR`;
-        document.getElementById('gpayBtn').href = `tez://upi/pay?pa=${upi}&pn=${name}&am=${amount}&cu=INR`;
-        document.getElementById('phonepeBtn').href = `phonepe://pay?pa=${upi}&pn=${name}&am=${amount}&cu=INR`;
-
-        // 6. Copy functionality
-        function copyUPI() {
-            navigator.clipboard.writeText(upi);
-            alert("UPI ID Copied!");
-        }
-    </script>
+  document.getElementById('copyBtn').addEventListener('click', () => {
+    navigator.clipboard.writeText(upi).then(() => {
+      const btn = document.getElementById('copyBtn');
+      const old = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(() => { btn.textContent = old; }, 1500);
+    }).catch(() => alert('Could not copy — your browser may be blocking clipboard access.'));
+  });
+})();
+</script>
 </body>
 </html>

@@ -172,25 +172,6 @@
   .disclosure{
     font-size:11.5px; color:var(--ink-soft); text-align:center; margin-top:16px; line-height:1.5;
   }
-
-  /* ---- Standalone "pay view" (when opened from a shared link) ---- */
-  .pay-view{max-width:440px; margin:60px auto 0;}
-  .pay-view .receipt-body{padding:30px 26px 26px;}
-  .open-upi{
-    display:block; width:100%; text-align:center; padding:14px; background:var(--green);
-    color:#fff; border-radius:3px; font-weight:600; text-decoration:none; font-size:15px;
-    margin-bottom:10px;
-  }
-  .open-upi:hover{background:#173a31;}
-  .manual-vpa{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-    background:var(--green-soft); border-radius:3px; padding:10px 12px; margin-top:14px;
-  }
-  .manual-vpa .id{font-family:'IBM Plex Mono', monospace; font-size:13px;}
-  .manual-vpa button{
-    border:none; background:var(--ink); color:#fff; font-size:12px; padding:6px 10px;
-    border-radius:3px; cursor:pointer;
-  }
 </style>
 </head>
 <body>
@@ -200,13 +181,6 @@
 <script>
 const PAGE_BG = getComputedStyle(document.documentElement).getPropertyValue('--page').trim();
 
-function toBase64Unicode(str){
-  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode('0x' + p1)));
-}
-function fromBase64Unicode(b64){
-  return decodeURIComponent(Array.prototype.map.call(atob(b64), c =>
-    '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-}
 function fmtINR(n){
   const num = Number(n || 0);
   return num.toLocaleString('en-IN', {maximumFractionDigits: 2});
@@ -228,44 +202,6 @@ function renderQr(elId, text, size){
   const el = document.getElementById(elId);
   el.innerHTML = '';
   new QRCode(el, {text, width:size, height:size, colorDark:'#201F1C', colorLight:'#ffffff'});
-}
-
-// ---------------- PAY VIEW (opened via shared link) ----------------
-function renderPayView(payload){
-  const app = document.getElementById('app');
-  const upiUri = buildUpiUri(payload);
-  const dateStr = new Date(payload.t).toLocaleString('en-IN', {dateStyle:'medium', timeStyle:'short'});
-
-  app.innerHTML = `
-    <div class="pay-view">
-      <div class="receipt">
-        <div class="receipt-body">
-          <div class="r-head">
-            <div class="from"><strong>${escapeHtml(payload.m)}</strong>is requesting a payment</div>
-            <div class="ref">Ref<span>${escapeHtml(payload.o)}</span></div>
-          </div>
-          <div class="amount-block">
-            <div class="label">Amount payable</div>
-            <div class="amt">₹${fmtINR(payload.a)}</div>
-            ${payload.n ? `<div class="for-note">for ${escapeHtml(payload.n)}</div>` : ''}
-          </div>
-          ${payload.c ? `<div class="bill-to"><span class="k">Billed to</span><br>${escapeHtml(payload.c)}</div>` : ''}
-          <div class="qr-wrap">
-            <div class="qr-box"><div id="qr-pay"></div></div>
-            <div class="cap">Scan with any UPI app to pay</div>
-          </div>
-          <a class="open-upi" href="${upiUri}">Open in UPI app</a>
-          <div class="manual-vpa">
-            <span class="id">${escapeHtml(payload.v)}</span>
-            <button onclick="navigator.clipboard.writeText('${escapeHtml(payload.v)}')">Copy UPI ID</button>
-          </div>
-          <div class="disclosure">Requested ${dateStr}. This page only displays payment details — it does not collect or store your money, card, or bank information.</div>
-        </div>
-      </div>
-    </div>
-  `;
-  renderQr('qr-pay', upiUri, 200);
-  document.title = `Pay ₹${fmtINR(payload.a)} to ${payload.m}`;
 }
 
 // ---------------- GENERATOR VIEW ----------------
@@ -342,19 +278,15 @@ function renderGenerator(){
   ids.forEach(id => fields[id] = document.getElementById(id));
 
   // try to restore a saved merchant profile
-  (async () => {
-    try{
-      if(window.storage){
-        const saved = await window.storage.get('merchant-profile', false);
-        if(saved && saved.value){
-          const profile = JSON.parse(saved.value);
-          fields.bizName.value = profile.name || '';
-          fields.bizVpa.value = profile.vpa || '';
-          updatePreview();
-        }
-      }
-    }catch(e){ /* no saved profile yet — fine */ }
-  })();
+  try {
+    const saved = localStorage.getItem('merchant-profile');
+    if (saved) {
+      const profile = JSON.parse(saved);
+      fields.bizName.value = profile.name || '';
+      fields.bizVpa.value = profile.vpa || '';
+      updatePreview();
+    }
+  } catch(e) { /* no saved profile yet — fine */ }
 
   function updatePreview(){
     const v = {};
@@ -385,7 +317,7 @@ function renderGenerator(){
 
   ids.forEach(id => fields[id].addEventListener('input', updatePreview));
 
-  document.getElementById('genBtn').addEventListener('click', async () => {
+  document.getElementById('genBtn').addEventListener('click', () => {
     const v = {};
     ids.forEach(id => v[id] = fields[id].value.trim());
     if(!v.bizName || !v.bizVpa || !v.amount || Number(v.amount) <= 0){
@@ -393,17 +325,20 @@ function renderGenerator(){
       return;
     }
     const orderId = 'RCPT-' + Date.now().toString(36).toUpperCase();
-    const payload = {m:v.bizName, v:v.bizVpa, c:v.custName, a:v.amount, n:v.note, o:orderId, t:Date.now()};
-    const encoded = toBase64Unicode(JSON.stringify(payload));
-    const shareUrl = location.origin + location.pathname + '#pay=' + encoded;
+    const params = new URLSearchParams();
+    params.set('upi', v.bizVpa);
+    params.set('name', v.bizName);
+    params.set('amount', Number(v.amount).toFixed(2));
+    if(v.note) params.set('note', v.note);
+    if(v.custName) params.set('cust', v.custName);
+    params.set('ref', orderId);
+    const shareUrl = new URL('payment.html?' + params.toString(), location.href).href;
     const upiUri = buildUpiUri({vpa:v.bizVpa, name:v.bizName, amount:v.amount, note:v.note, ref:orderId});
 
     // save merchant profile for next time
-    try{
-      if(window.storage){
-        await window.storage.set('merchant-profile', JSON.stringify({name:v.bizName, vpa:v.bizVpa}), false);
-      }
-    }catch(e){ /* non-fatal */ }
+    try {
+      localStorage.setItem('merchant-profile', JSON.stringify({name:v.bizName, vpa:v.bizVpa}));
+    } catch(e) { /* non-fatal */ }
 
     const waText = `Hi ${v.custName || 'there'}, here's a payment request from ${v.bizName} for ₹${fmtINR(v.amount)}${v.note ? ' ('+v.note+')' : ''}.\n\nView & pay: ${shareUrl}\nRef: ${orderId}`;
     const waPhone = (v.custPhone || '').replace(/[^0-9]/g, '');
@@ -422,18 +357,15 @@ function renderGenerator(){
   updatePreview();
 }
 
-// ---------------- Router ----------------
+// ---------------- Init ----------------
 (function init(){
-  const hash = location.hash || '';
-  if(hash.startsWith('#pay=')){
-    try{
-      const payload = JSON.parse(fromBase64Unicode(hash.slice(5)));
-      renderPayView(payload);
+  try {
+    const session = localStorage.getItem('session-authed');
+    if (session !== 'true') {
+      location.href = 'login.html';
       return;
-    }catch(e){
-      // fall through to generator if the link is malformed
     }
-  }
+  } catch(e) { /* no session yet — fall through to generator */ }
   renderGenerator();
 })();
 </script>
