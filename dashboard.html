@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Receipt — Payment Request Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --page: #F1EFE6;
+    --paper: #FCFBF6;
+    --ink: #201F1C;
+    --ink-soft: #6B675D;
+    --hairline: #D9D3C3;
+    --green: #1F4B3F;
+    --green-soft: #E8EEE9;
+    --stamp: #A6392B;
+    --shadow: rgba(32, 31, 28, 0.12);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--page);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+    padding:40px 20px 80px;
+  }
+  .mono{font-family:'IBM Plex Mono', monospace;}
+  .wrap{max-width:980px; margin:0 auto;}
+  header.site{
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin-bottom:28px; flex-wrap:wrap; gap:8px;
+  }
+  header.site h1{
+    font-size:20px; font-weight:600; margin:0; letter-spacing:0.2px;
+  }
+  header.site p{
+    margin:0; color:var(--ink-soft); font-size:13px;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap:28px;
+    align-items:start;
+  }
+  @media (max-width: 780px){
+    .grid{grid-template-columns: 1fr;}
+  }
+
+  /* ---- Form panel ---- */
+  .panel{
+    background:var(--paper);
+    border:1px solid var(--hairline);
+    border-radius:4px;
+    padding:28px;
+  }
+  .panel h2{
+    font-size:13px; text-transform:none; margin:0 0 4px;
+    color:var(--green); font-weight:600;
+  }
+  .panel .hint{
+    font-size:12.5px; color:var(--ink-soft); margin:0 0 20px;
+  }
+  fieldset{
+    border:none; padding:0; margin:0 0 22px;
+  }
+  fieldset legend{
+    font-size:11.5px; color:var(--ink-soft); padding:0 0 8px;
+    border-bottom:1px solid var(--hairline); width:100%; margin-bottom:14px;
+  }
+  .field{margin-bottom:14px;}
+  .field label{
+    display:block; font-size:12.5px; color:var(--ink-soft); margin-bottom:5px;
+  }
+  .field input, .field textarea{
+    width:100%; border:none; border-bottom:1.5px solid var(--hairline);
+    background:transparent; font-size:15px; padding:6px 2px;
+    font-family:'IBM Plex Sans', sans-serif; color:var(--ink);
+  }
+  .field input:focus, .field textarea:focus{
+    outline:none; border-bottom-color:var(--green);
+  }
+  .field.amount input{
+    font-family:'IBM Plex Mono', monospace; font-size:20px; font-weight:500;
+  }
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+
+  button.primary{
+    width:100%; padding:13px 16px; background:var(--green); color:#fff;
+    border:none; border-radius:3px; font-size:14.5px; font-weight:600;
+    font-family:'IBM Plex Sans', sans-serif; cursor:pointer; margin-top:6px;
+  }
+  button.primary:hover{background:#173a31;}
+  button.primary:disabled{background:#A9B4AE; cursor:not-allowed;}
+
+  .note-line{
+    font-size:11.5px; color:var(--ink-soft); margin-top:14px; line-height:1.5;
+  }
+
+  /* ---- Receipt preview ---- */
+  .receipt-outer{
+    position:relative; padding-top:14px;
+  }
+  .receipt{
+    background:var(--paper);
+    border:1px solid var(--hairline);
+    border-radius:2px;
+    box-shadow:0 10px 30px var(--shadow);
+    position:relative;
+    overflow:hidden;
+  }
+  .perf{
+    height:14px;
+    background-image: radial-gradient(circle at 7px 7px, var(--page) 7px, transparent 7.5px);
+    background-size: 20px 14px;
+    background-repeat: repeat-x;
+    margin-top:-1px;
+  }
+  .receipt-body{padding:26px 26px 22px;}
+  .r-head{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    border-bottom:1px dashed var(--hairline); padding-bottom:16px; margin-bottom:18px;
+  }
+  .r-head .from{font-size:13px; color:var(--ink-soft);}
+  .r-head .from strong{display:block; color:var(--ink); font-size:15px; font-weight:600;}
+  .r-head .ref{text-align:right; font-size:11px; color:var(--ink-soft);}
+  .r-head .ref span{display:block; font-family:'IBM Plex Mono',monospace; color:var(--ink); font-size:12px;}
+
+  .amount-block{text-align:center; margin:22px 0 20px;}
+  .amount-block .label{font-size:11.5px; color:var(--ink-soft); letter-spacing:0.3px;}
+  .amount-block .amt{
+    font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:40px; color:var(--ink);
+    margin:4px 0 2px;
+  }
+  .amount-block .for-note{font-size:13px; color:var(--ink-soft);}
+
+  .bill-to{
+    background:var(--green-soft); border-radius:3px; padding:12px 14px;
+    font-size:13px; margin-bottom:20px; color:var(--ink);
+  }
+  .bill-to .k{color:var(--ink-soft); font-size:11.5px;}
+
+  .qr-wrap{display:flex; flex-direction:column; align-items:center; margin-bottom:16px;}
+  .qr-wrap .qr-box{
+    padding:12px; background:#fff; border:1px solid var(--hairline); border-radius:4px;
+  }
+  .qr-wrap .cap{font-size:12px; color:var(--ink-soft); margin-top:8px;}
+
+  .placeholder-state{
+    text-align:center; color:var(--ink-soft); font-size:13px; padding:60px 20px;
+  }
+
+  .actions{display:grid; gap:8px; margin-top:6px;}
+  .actions button{
+    font-family:'IBM Plex Sans', sans-serif; font-size:13.5px; font-weight:500;
+    padding:11px; border-radius:3px; cursor:pointer; border:1px solid var(--hairline);
+    background:#fff; color:var(--ink);
+  }
+  .actions button.wa{background:var(--green); color:#fff; border:none;}
+  .actions button.wa:hover{background:#173a31;}
+  .actions button:hover{background:var(--green-soft);}
+
+  .share-url{
+    margin-top:14px; padding:10px 12px; background:var(--green-soft); border-radius:3px;
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; word-break:break-all; color:var(--ink);
+  }
+
+  .disclosure{
+    font-size:11.5px; color:var(--ink-soft); text-align:center; margin-top:16px; line-height:1.5;
+  }
+
+  /* ---- Standalone "pay view" (when opened from a shared link) ---- */
+  .pay-view{max-width:440px; margin:60px auto 0;}
+  .pay-view .receipt-body{padding:30px 26px 26px;}
+  .open-upi{
+    display:block; width:100%; text-align:center; padding:14px; background:var(--green);
+    color:#fff; border-radius:3px; font-weight:600; text-decoration:none; font-size:15px;
+    margin-bottom:10px;
+  }
+  .open-upi:hover{background:#173a31;}
+  .manual-vpa{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--green-soft); border-radius:3px; padding:10px 12px; margin-top:14px;
+  }
+  .manual-vpa .id{font-family:'IBM Plex Mono', monospace; font-size:13px;}
+  .manual-vpa button{
+    border:none; background:var(--ink); color:#fff; font-size:12px; padding:6px 10px;
+    border-radius:3px; cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<div id="app" class="wrap"></div>
+
+<script>
+const PAGE_BG = getComputedStyle(document.documentElement).getPropertyValue('--page').trim();
+
+function toBase64Unicode(str){
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode('0x' + p1)));
+}
+function fromBase64Unicode(b64){
+  return decodeURIComponent(Array.prototype.map.call(atob(b64), c =>
+    '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+}
+function fmtINR(n){
+  const num = Number(n || 0);
+  return num.toLocaleString('en-IN', {maximumFractionDigits: 2});
+}
+function escapeHtml(s){
+  return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function buildUpiUri({vpa, name, amount, note, ref}){
+  const params = new URLSearchParams();
+  params.set('pa', vpa);
+  params.set('pn', name);
+  params.set('am', Number(amount).toFixed(2));
+  params.set('cu', 'INR');
+  if(note) params.set('tn', note);
+  if(ref) params.set('tr', ref);
+  return 'upi://pay?' + params.toString();
+}
+function renderQr(elId, text, size){
+  const el = document.getElementById(elId);
+  el.innerHTML = '';
+  new QRCode(el, {text, width:size, height:size, colorDark:'#201F1C', colorLight:'#ffffff'});
+}
+
+// ---------------- PAY VIEW (opened via shared link) ----------------
+function renderPayView(payload){
+  const app = document.getElementById('app');
+  const upiUri = buildUpiUri(payload);
+  const dateStr = new Date(payload.t).toLocaleString('en-IN', {dateStyle:'medium', timeStyle:'short'});
+
+  app.innerHTML = `
+    <div class="pay-view">
+      <div class="receipt">
+        <div class="receipt-body">
+          <div class="r-head">
+            <div class="from"><strong>${escapeHtml(payload.m)}</strong>is requesting a payment</div>
+            <div class="ref">Ref<span>${escapeHtml(payload.o)}</span></div>
+          </div>
+          <div class="amount-block">
+            <div class="label">Amount payable</div>
+            <div class="amt">₹${fmtINR(payload.a)}</div>
+            ${payload.n ? `<div class="for-note">for ${escapeHtml(payload.n)}</div>` : ''}
+          </div>
+          ${payload.c ? `<div class="bill-to"><span class="k">Billed to</span><br>${escapeHtml(payload.c)}</div>` : ''}
+          <div class="qr-wrap">
+            <div class="qr-box"><div id="qr-pay"></div></div>
+            <div class="cap">Scan with any UPI app to pay</div>
+          </div>
+          <a class="open-upi" href="${upiUri}">Open in UPI app</a>
+          <div class="manual-vpa">
+            <span class="id">${escapeHtml(payload.v)}</span>
+            <button onclick="navigator.clipboard.writeText('${escapeHtml(payload.v)}')">Copy UPI ID</button>
+          </div>
+          <div class="disclosure">Requested ${dateStr}. This page only displays payment details — it does not collect or store your money, card, or bank information.</div>
+        </div>
+      </div>
+    </div>
+  `;
+  renderQr('qr-pay', upiUri, 200);
+  document.title = `Pay ₹${fmtINR(payload.a)} to ${payload.m}`;
+}
+
+// ---------------- GENERATOR VIEW ----------------
+function renderGenerator(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <header class="site">
+      <h1>Receipt</h1>
+      <p>A plain payment-request generator — standard UPI links, nothing hidden.</p>
+    </header>
+    <div class="grid">
+      <div class="panel">
+        <h2>Create a payment request</h2>
+        <p class="hint">Fill this in once per customer. Nothing is sent anywhere until you tap Generate.</p>
+
+        <fieldset>
+          <legend>Your business</legend>
+          <div class="row2">
+            <div class="field">
+              <label for="bizName">Business / your name</label>
+              <input id="bizName" type="text" placeholder="e.g. Meera Textiles">
+            </div>
+            <div class="field">
+              <label for="bizVpa">Your UPI ID</label>
+              <input id="bizVpa" type="text" placeholder="yourname@bank">
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Customer</legend>
+          <div class="row2">
+            <div class="field">
+              <label for="custName">Customer name</label>
+              <input id="custName" type="text" placeholder="e.g. Rohit Sharma">
+            </div>
+            <div class="field">
+              <label for="custPhone">WhatsApp number</label>
+              <input id="custPhone" type="text" placeholder="91XXXXXXXXXX">
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>What they're paying for</legend>
+          <div class="field amount">
+            <label for="amount">Amount (₹)</label>
+            <input id="amount" type="number" min="1" step="0.01" placeholder="0.00">
+          </div>
+          <div class="field">
+            <label for="note">Note (shown to the customer)</label>
+            <input id="note" type="text" placeholder="e.g. Order #214 — blue kurta, size M">
+          </div>
+        </fieldset>
+
+        <button class="primary" id="genBtn">Generate payment link</button>
+        <div class="note-line">The link opens a page showing the amount, who it's for, and a scannable QR — built from the standard UPI payment format that Paytm, PhonePe, GPay and every bank app already support. No third-party service ever sees this transaction.</div>
+      </div>
+
+      <div class="receipt-outer">
+        <div class="receipt">
+          <div class="perf"></div>
+          <div class="receipt-body" id="previewBody">
+            <div class="placeholder-state">Fill in the form to preview the receipt</div>
+          </div>
+        </div>
+        <div id="shareArea"></div>
+      </div>
+    </div>
+  `;
+
+  const ids = ['bizName','bizVpa','custName','custPhone','amount','note'];
+  const fields = {};
+  ids.forEach(id => fields[id] = document.getElementById(id));
+
+  // try to restore a saved merchant profile
+  (async () => {
+    try{
+      if(window.storage){
+        const saved = await window.storage.get('merchant-profile', false);
+        if(saved && saved.value){
+          const profile = JSON.parse(saved.value);
+          fields.bizName.value = profile.name || '';
+          fields.bizVpa.value = profile.vpa || '';
+          updatePreview();
+        }
+      }
+    }catch(e){ /* no saved profile yet — fine */ }
+  })();
+
+  function updatePreview(){
+    const v = {};
+    ids.forEach(id => v[id] = fields[id].value.trim());
+    const body = document.getElementById('previewBody');
+    if(!v.bizName || !v.bizVpa || !v.amount){
+      body.innerHTML = '<div class="placeholder-state">Add your business name, UPI ID and an amount to see the receipt</div>';
+      return;
+    }
+    body.innerHTML = `
+      <div class="r-head">
+        <div class="from"><strong>${escapeHtml(v.bizName)}</strong>Payment request</div>
+        <div class="ref">Ref<span>—</span></div>
+      </div>
+      <div class="amount-block">
+        <div class="label">Amount payable</div>
+        <div class="amt">₹${fmtINR(v.amount)}</div>
+        ${v.note ? `<div class="for-note">for ${escapeHtml(v.note)}</div>` : ''}
+      </div>
+      ${v.custName ? `<div class="bill-to"><span class="k">Billed to</span><br>${escapeHtml(v.custName)}</div>` : ''}
+      <div class="qr-wrap">
+        <div class="qr-box"><div id="qr-preview"></div></div>
+        <div class="cap">Scan with any UPI app to pay</div>
+      </div>
+    `;
+    renderQr('qr-preview', buildUpiUri({vpa:v.bizVpa, name:v.bizName, amount:v.amount || 0, note:v.note}), 160);
+  }
+
+  ids.forEach(id => fields[id].addEventListener('input', updatePreview));
+
+  document.getElementById('genBtn').addEventListener('click', async () => {
+    const v = {};
+    ids.forEach(id => v[id] = fields[id].value.trim());
+    if(!v.bizName || !v.bizVpa || !v.amount || Number(v.amount) <= 0){
+      alert('Please add your business name, UPI ID and a valid amount first.');
+      return;
+    }
+    const orderId = 'RCPT-' + Date.now().toString(36).toUpperCase();
+    const payload = {m:v.bizName, v:v.bizVpa, c:v.custName, a:v.amount, n:v.note, o:orderId, t:Date.now()};
+    const encoded = toBase64Unicode(JSON.stringify(payload));
+    const shareUrl = location.origin + location.pathname + '#pay=' + encoded;
+    const upiUri = buildUpiUri({vpa:v.bizVpa, name:v.bizName, amount:v.amount, note:v.note, ref:orderId});
+
+    // save merchant profile for next time
+    try{
+      if(window.storage){
+        await window.storage.set('merchant-profile', JSON.stringify({name:v.bizName, vpa:v.bizVpa}), false);
+      }
+    }catch(e){ /* non-fatal */ }
+
+    const waText = `Hi ${v.custName || 'there'}, here's a payment request from ${v.bizName} for ₹${fmtINR(v.amount)}${v.note ? ' ('+v.note+')' : ''}.\n\nView & pay: ${shareUrl}\nRef: ${orderId}`;
+    const waPhone = (v.custPhone || '').replace(/[^0-9]/g, '');
+    const waLink = 'https://wa.me/' + waPhone + '?text=' + encodeURIComponent(waText);
+
+    document.getElementById('shareArea').innerHTML = `
+      <div class="actions" style="margin-top:14px;">
+        <button class="wa" onclick="window.open('${waLink}', '_blank')">Send via WhatsApp</button>
+        <button onclick="navigator.clipboard.writeText('${shareUrl}')">Copy shareable link</button>
+        <button onclick="navigator.clipboard.writeText('${upiUri}')">Copy raw UPI link</button>
+      </div>
+      <div class="share-url">${shareUrl}</div>
+    `;
+  });
+
+  updatePreview();
+}
+
+// ---------------- Router ----------------
+(function init(){
+  const hash = location.hash || '';
+  if(hash.startsWith('#pay=')){
+    try{
+      const payload = JSON.parse(fromBase64Unicode(hash.slice(5)));
+      renderPayView(payload);
+      return;
+    }catch(e){
+      // fall through to generator if the link is malformed
+    }
+  }
+  renderGenerator();
+})();
+</script>
+</body>
+</html>

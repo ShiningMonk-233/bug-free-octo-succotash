@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seller Login</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: #f4f4f4; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+        .login-container { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+            width: 100%; 
+            max-width: 350px; 
+            text-align: center; 
+            box-sizing: border-box;
+        }
+        .login-container h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        input { 
+            width: 100%; 
+            padding: 12px; 
+            margin: 10px 0; 
+            box-sizing: border-box; 
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button { 
+            width: 100%; 
+            padding: 12px; 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .error { 
+            color: #dc3545; 
+            font-size: 14px; 
+            display: none; 
+            margin-top: 15px; 
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Seller Portal</h2>
+        <p style="color: #666; font-size: 14px; margin-bottom: 20px;">Enter your credentials to access the dashboard.</p>
+        
+        <input type="text" id="username" placeholder="Username" required>
+        <input type="password" id="password" placeholder="Password" required>
+        
+        <button onclick="attemptLogin()">Log In</button>
+        
+        <div id="error-message" class="error">Invalid username or password.</div>
+    </div>
+
+    <script>
+        function attemptLogin() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const errorMsg = document.getElementById('error-message');
+
+            // Prototype credentials
+            // Username: admin
+            // Password: password123
+            if (user === "admin" && pass === "password123") {
+                // Hide error if previously shown
+                errorMsg.style.display = "none";
+                
+                // Redirect to the dashboard page
+                window.location.href = "dashboard.html";
+            } else {
+                // Show error message for incorrect credentials
+                errorMsg.style.display = "block";
+            }
+        }
+    </script>
+</body>
+</html>
