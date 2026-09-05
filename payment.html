@@ -187,6 +187,10 @@ function renderError(msg){
           <a class="app-btn upi" id="upiBtn" href="#">Open in another UPI app</a>
         </div>
 
+        <button type="button" class="app-btn" id="shareBtn" style="cursor:pointer; width:100%; margin-bottom:18px;">
+          <span class="swatch" style="background:#25D366;"></span>Share via WhatsApp
+        </button>
+
         <div class="manual-vpa">
           <div><span class="k">UPI ID</span><span class="id">${escapeHtml(upi)}</span></div>
           <button id="copyBtn">Copy</button>
@@ -199,11 +203,34 @@ function renderError(msg){
 
   renderQr('qrcode', upiString, 200);
 
-  const deepLink = (scheme) => scheme + '?' + upiParams.toString();
-  document.getElementById('paytmBtn').href = deepLink('paytmmp://pay');
-  document.getElementById('gpayBtn').href = deepLink('tez://upi/pay');
-  document.getElementById('phonepeBtn').href = deepLink('phonepe://pay');
+  // IMPORTANT: all buttons point at the same generic `upi://pay?...` string used by
+  // the QR code above (not each app's own custom scheme like tez://, phonepe://,
+  // paytmmp://). Those app-specific "business" schemes run through each app's
+  // merchant-validation path — GPay in particular checks the payee VPA against a
+  // registered merchant category *before* showing the PIN screen, and rejects
+  // non-merchant VPAs with a generic, misleading error (often shown as a
+  // "limit exceeded" message) even for tiny amounts like ₹1. The plain
+  // `upi://pay` intent goes through the standard consumer P2P flow instead,
+  // which is the one you've already confirmed works via QR scanning.
+  // Trade-off: tapping "Pay via GPay" can no longer force GPay specifically to
+  // open — the OS/browser will hand it to the device's UPI handler (a chooser,
+  // or a single installed app). That's the safer default until the payee VPA
+  // is properly onboarded as a registered merchant with each PSP.
+  document.getElementById('paytmBtn').href = upiString;
+  document.getElementById('gpayBtn').href = upiString;
+  document.getElementById('phonepeBtn').href = upiString;
   document.getElementById('upiBtn').href = upiString;
+
+  document.getElementById('shareBtn').addEventListener('click', () => {
+    // wa.me is WhatsApp's official web share intent — it reliably opens the
+    // WhatsApp app's own "send to" / forward picker on mobile (or
+    // web.whatsapp.com on desktop). This must fire synchronously inside the
+    // click handler (not after an await/fetch/.then()), otherwise iOS and
+    // some Android WebViews treat it as a non-user-initiated redirect and
+    // silently block it.
+    const shareText = `${name} is requesting ₹${fmtINR(amount)}${note ? ' for ' + note : ''}. Pay here: ${window.location.href}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+  });
 
   document.getElementById('copyBtn').addEventListener('click', () => {
     navigator.clipboard.writeText(upi).then(() => {
