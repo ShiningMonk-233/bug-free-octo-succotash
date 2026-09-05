@@ -138,11 +138,15 @@ function renderError(msg){
   upiParams.set('cu', 'INR');
   if(note) upiParams.set('tn', note);
   
-  // Only set 'tr' if explicitly provided in the URL to avoid P2P block limits
-  if(ref) upiParams.set('tr', ref);
+  // STRICT RULE: Only set 'tr' if it is a registered merchant (mc exists)
+  if(ref && mc) upiParams.set('tr', ref);
   if(mc) upiParams.set('mc', mc);
   
-  const upiString = 'upi://pay?' + upiParams.toString();
+  // THE CRITICAL FIX: URLSearchParams uses '+' for spaces. UPI apps require '%20'.
+  // We MUST replace '+' with '%20', otherwise GPay/PhonePe fail the bank name match.
+  const encodedQueryString = upiParams.toString().replace(/\+/g, '%20');
+  
+  const upiString = 'upi://pay?' + encodedQueryString;
 
   document.title = `Pay ₹${fmtINR(amount)} to ${name}`;
 
@@ -188,7 +192,8 @@ function renderError(msg){
 
   renderQr('qrcode', upiString, 200);
 
-  const deepLink = (scheme) => scheme + '?' + upiParams.toString();
+  // Apply the corrected query string to all app deep links
+  const deepLink = (scheme) => scheme + '?' + encodedQueryString;
   document.getElementById('paytmBtn').href = deepLink('paytmmp://pay');
   document.getElementById('gpayBtn').href = deepLink('tez://upi/pay');
   document.getElementById('phonepeBtn').href = deepLink('phonepe://pay');
