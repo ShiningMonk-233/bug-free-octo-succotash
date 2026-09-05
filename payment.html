@@ -124,15 +124,7 @@ function renderError(msg){
   const note = (p.get('note') || '').trim();
   const cust = (p.get('cust') || '').trim();
   const mc = (p.get('mc') || '').trim();
-
-  function generateTxnRef(){
-    // Unique per page load so retries never reuse the same reference —
-    // reused/missing tr values are a common cause of apps silently
-    // rejecting a UPI intent (often surfaced as a generic "limit exceeded").
-    const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-    return `TXN${Date.now()}${rand}`;
-  }
-  const ref = (p.get('ref') || '').trim() || generateTxnRef();
+  const ref = (p.get('ref') || '').trim();
 
   if(!upi || !name || !amount || Number(amount) <= 0){
     renderError("This payment link is missing or malformed — ask for a fresh link from the seller.");
@@ -145,14 +137,11 @@ function renderError(msg){
   upiParams.set('am', Number(amount).toFixed(2));
   upiParams.set('cu', 'INR');
   if(note) upiParams.set('tn', note);
-  upiParams.set('tr', ref);
-  // mc = merchant category code — only include this if the payee VPA is a
-  // *registered merchant* with a real MCC. Sending a fabricated mc for a
-  // personal account makes the intent look like a merchant transaction for
-  // an unregistered merchant, which GPay rejects right at the "Pay" tap
-  // (before PIN entry) — exactly the "limit exceeded" symptom. Pass
-  // ?mc=XXXX only if you actually have one; otherwise omit it.
+  
+  // Only set 'tr' if explicitly provided in the URL to avoid P2P block limits
+  if(ref) upiParams.set('tr', ref);
   if(mc) upiParams.set('mc', mc);
+  
   const upiString = 'upi://pay?' + upiParams.toString();
 
   document.title = `Pay ₹${fmtINR(amount)} to ${name}`;
@@ -164,7 +153,7 @@ function renderError(msg){
         <div class="r-head">
           <div class="from">
             ${cust ? `<div class="greeting">Hi ${escapeHtml(cust)},</div>` : ''}
-            <strong>${escapeHtml(name)}</strong>is requesting a payment
+            <strong>${escapeHtml(name)}</strong> is requesting a payment
           </div>
           ${ref ? `<div class="ref">Ref<span>${escapeHtml(ref)}</span></div>` : ''}
         </div>
@@ -187,10 +176,6 @@ function renderError(msg){
           <a class="app-btn upi" id="upiBtn" href="#">Open in another UPI app</a>
         </div>
 
-        <button type="button" class="app-btn" id="shareBtn" style="cursor:pointer; width:100%; margin-bottom:18px;">
-          <span class="swatch" style="background:#25D366;"></span>Share via WhatsApp
-        </button>
-
         <div class="manual-vpa">
           <div><span class="k">UPI ID</span><span class="id">${escapeHtml(upi)}</span></div>
           <button id="copyBtn">Copy</button>
@@ -203,34 +188,11 @@ function renderError(msg){
 
   renderQr('qrcode', upiString, 200);
 
-  // IMPORTANT: all buttons point at the same generic `upi://pay?...` string used by
-  // the QR code above (not each app's own custom scheme like tez://, phonepe://,
-  // paytmmp://). Those app-specific "business" schemes run through each app's
-  // merchant-validation path — GPay in particular checks the payee VPA against a
-  // registered merchant category *before* showing the PIN screen, and rejects
-  // non-merchant VPAs with a generic, misleading error (often shown as a
-  // "limit exceeded" message) even for tiny amounts like ₹1. The plain
-  // `upi://pay` intent goes through the standard consumer P2P flow instead,
-  // which is the one you've already confirmed works via QR scanning.
-  // Trade-off: tapping "Pay via GPay" can no longer force GPay specifically to
-  // open — the OS/browser will hand it to the device's UPI handler (a chooser,
-  // or a single installed app). That's the safer default until the payee VPA
-  // is properly onboarded as a registered merchant with each PSP.
-  document.getElementById('paytmBtn').href = upiString;
-  document.getElementById('gpayBtn').href = upiString;
-  document.getElementById('phonepeBtn').href = upiString;
+  const deepLink = (scheme) => scheme + '?' + upiParams.toString();
+  document.getElementById('paytmBtn').href = deepLink('paytmmp://pay');
+  document.getElementById('gpayBtn').href = deepLink('tez://upi/pay');
+  document.getElementById('phonepeBtn').href = deepLink('phonepe://pay');
   document.getElementById('upiBtn').href = upiString;
-
-  document.getElementById('shareBtn').addEventListener('click', () => {
-    // wa.me is WhatsApp's official web share intent — it reliably opens the
-    // WhatsApp app's own "send to" / forward picker on mobile (or
-    // web.whatsapp.com on desktop). This must fire synchronously inside the
-    // click handler (not after an await/fetch/.then()), otherwise iOS and
-    // some Android WebViews treat it as a non-user-initiated redirect and
-    // silently block it.
-    const shareText = `${name} is requesting ₹${fmtINR(amount)}${note ? ' for ' + note : ''}. Pay here: ${window.location.href}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
-  });
 
   document.getElementById('copyBtn').addEventListener('click', () => {
     navigator.clipboard.writeText(upi).then(() => {
