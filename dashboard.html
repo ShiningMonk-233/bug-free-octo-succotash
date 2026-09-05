@@ -240,7 +240,7 @@ function renderGenerator(){
             </div>
             <div class="field">
               <label for="custPhone">WhatsApp number</label>
-              <input id="custPhone" type="text" placeholder="91XXXXXXXXXX">
+              <input id="custPhone" type="text" placeholder="9876543210">
             </div>
           </div>
         </fieldset>
@@ -341,17 +341,39 @@ function renderGenerator(){
     } catch(e) { /* non-fatal */ }
 
     const waText = `Hi ${v.custName || 'there'}, here's a payment request from ${v.bizName} for ₹${fmtINR(v.amount)}${v.note ? ' ('+v.note+')' : ''}.\n\nView & pay: ${shareUrl}\nRef: ${orderId}`;
-    const waPhone = (v.custPhone || '').replace(/[^0-9]/g, '');
+    // India-only: merchants can just type the plain 10-digit mobile number.
+    // Strip everything but digits, drop a stray leading 0 (some people type
+    // numbers domestic-style with a leading 0), and prepend 91 if what's
+    // left is a bare 10-digit number. A number already given with 91 (or
+    // any other length) is left as-is.
+    let waPhone = (v.custPhone || '').replace(/[^0-9]/g, '').replace(/^0+/, '');
+    if (waPhone.length === 10) {
+      waPhone = '91' + waPhone;
+    }
     const waLink = 'https://wa.me/' + waPhone + '?text=' + encodeURIComponent(waText);
 
     document.getElementById('shareArea').innerHTML = `
       <div class="actions" style="margin-top:14px;">
-        <button class="wa" onclick="window.open('${waLink}', '_blank')">Send via WhatsApp</button>
-        <button onclick="navigator.clipboard.writeText('${shareUrl}')">Copy shareable link</button>
-        <button onclick="navigator.clipboard.writeText('${upiUri}')">Copy raw UPI link</button>
+        <a class="wa" id="waSendBtn" href="#" target="_blank" rel="noopener" style="display:block; text-align:center; text-decoration:none;">Send via WhatsApp</a>
+        <button type="button" id="copyLinkBtn">Copy shareable link</button>
+        <button type="button" id="copyUpiBtn">Copy raw UPI link</button>
       </div>
-      <div class="share-url">${shareUrl}</div>
+      <div class="share-url">${escapeHtml(shareUrl)}</div>
     `;
+
+    // Setting href/click behavior via the DOM (instead of interpolating
+    // strings into inline onclick="..." attributes) avoids the class of bug
+    // that broke this before: any apostrophe, quote, or special character
+    // anywhere in the message — including the literal one in "here's" above —
+    // would prematurely close the quoted string inside the inline handler
+    // and silently break the button with no visible error.
+    document.getElementById('waSendBtn').href = waLink;
+    document.getElementById('copyLinkBtn').addEventListener('click', () => {
+      navigator.clipboard.writeText(shareUrl).catch(() => alert('Could not copy — clipboard access may be blocked.'));
+    });
+    document.getElementById('copyUpiBtn').addEventListener('click', () => {
+      navigator.clipboard.writeText(upiUri).catch(() => alert('Could not copy — clipboard access may be blocked.'));
+    });
   });
 
   updatePreview();
